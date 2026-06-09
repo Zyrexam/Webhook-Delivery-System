@@ -10,9 +10,10 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://webhook_user:webh
 
 
 async def init():
-    engine = create_async_engine(DATABASE_URL, echo=True)
+    engine = create_async_engine(DATABASE_URL, echo=False)
     async with engine.begin() as conn:
-        # Events table - stores incoming events
+
+        # Events table
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS events (
                 id          UUID PRIMARY KEY,
@@ -22,17 +23,22 @@ async def init():
             )
         """))
 
-        # Subscriptions table - where customers register their webhooks
+        # Subscriptions table — with HMAC secret + circuit breaker columns
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS subscriptions (
-                id           UUID PRIMARY KEY,
-                endpoint_url TEXT NOT NULL,
-                event_type   TEXT NOT NULL,
-                created_at   TIMESTAMPTZ DEFAULT NOW()
+                id                UUID PRIMARY KEY,
+                endpoint_url      TEXT NOT NULL,
+                event_type        TEXT NOT NULL,
+                is_active         BOOLEAN DEFAULT TRUE,
+                secret            TEXT,
+                circuit_state     TEXT DEFAULT 'CLOSED',
+                failure_count     INT DEFAULT 0,
+                circuit_opened_at TIMESTAMPTZ,
+                created_at        TIMESTAMPTZ DEFAULT NOW()
             )
         """))
 
-        # Webhook deliveries table - tracks each delivery attempt
+        # Webhook deliveries table — with status_code + error_message + updated_at
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS webhook_deliveries (
                 id               UUID PRIMARY KEY,
@@ -40,23 +46,16 @@ async def init():
                 subscription_id  UUID REFERENCES subscriptions(id),
                 status           TEXT DEFAULT 'PENDING',
                 attempt_count    INT DEFAULT 0,
+                status_code      INT,
+                error_message    TEXT,
                 next_attempt_at  TIMESTAMPTZ DEFAULT NOW(),
                 delivered_at     TIMESTAMPTZ,
+                updated_at       TIMESTAMPTZ DEFAULT NOW(),
                 created_at       TIMESTAMPTZ DEFAULT NOW()
             )
         """))
 
-        print("Tables created successfully")
-
-        # Insert a test subscription so we have something to deliver to
-        await conn.execute(text("""
-            INSERT INTO subscriptions (id, endpoint_url, event_type)
-            VALUES
-                ('11111111-1111-1111-1111-111111111111', 'https://webhook.site/your-test-id', 'order.placed'),
-                ('22222222-2222-2222-2222-222222222222', 'https://webhook.site/your-test-id', 'order.placed')
-            ON CONFLICT (id) DO NOTHING
-        """))
-        print("Added test subscriptions")
+        print("✓ Tables created")
 
 
 asyncio.run(init())
