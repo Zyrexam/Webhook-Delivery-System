@@ -1,4 +1,7 @@
 import uuid
+import secrets
+import hashlib
+import hmac
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -20,6 +23,9 @@ class SubscriptionResponse(BaseModel):
     event_type: str
     created_at: datetime
     is_active: bool
+    secret: Optional[str] = None
+    circuit_state: Optional[str] = None
+    failure_count: Optional[int] = None
 
 class SubscriptionUpdate(BaseModel):
     is_active: bool
@@ -31,10 +37,11 @@ async def create_subscription(
     db: AsyncSession = Depends(get_db)
 ):
     sub_id = str(uuid.uuid4())
+    secret = secrets.token_hex(32) 
     await db.execute(text("""
-        INSERT INTO subscriptions (id, endpoint_url, event_type, is_active)
-        VALUES (:id, :url, :event_type, TRUE)
-    """), {"id": sub_id, "url": str(body.endpoint_url), "event_type": body.event_type})
+        INSERT INTO subscriptions (id, endpoint_url, event_type, is_active, secret)
+        VALUES (:id, :url, :event_type, TRUE, :secret)
+    """), {"id": sub_id, "url": str(body.endpoint_url), "event_type": body.event_type, "secret": secret})
     await db.commit()
 
     return SubscriptionResponse(
@@ -42,7 +49,8 @@ async def create_subscription(
         endpoint_url=str(body.endpoint_url),
         event_type=body.event_type,
         created_at=datetime.utcnow(),
-        is_active=True
+        is_active=True,
+        secret=secret
     )
 
 
@@ -51,7 +59,8 @@ async def list_subscriptions(
     event_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    query = "SELECT id, endpoint_url, event_type, created_at, is_active FROM subscriptions WHERE 1=1"
+
+    query = "SELECT id, endpoint_url, event_type, created_at, is_active, circuit_state, failure_count FROM subscriptions WHERE 1=1"
     params = {}
 
     if event_type:
@@ -68,7 +77,9 @@ async def list_subscriptions(
             endpoint_url=row[1],
             event_type=row[2],
             created_at=row[3],
-            is_active=row[4]
+            is_active=row[4],
+            circuit_state=row[5],
+            failure_count=row[6]
         )
         for row in rows
     ]

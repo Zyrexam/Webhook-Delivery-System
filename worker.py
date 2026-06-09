@@ -1,8 +1,13 @@
 import asyncio
 import aiohttp
+import hmac
+import hashlib
+import json
 from sqlalchemy import text
 from database import AsyncSessionLocal
 from redis_client import redis
+from circuit_breaker import get_circuit_state, record_success, record_failure
+
 
 BACKOFF_BASE = 2
 MAX_ATTEMPTS = 5
@@ -10,13 +15,24 @@ MAX_ATTEMPTS = 5
 def calc_backoff(attempt: int) -> int:
     return BACKOFF_BASE ** attempt
 
+def sign_payload(secret: str, payload: dict) -> str:
+    body = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    sig = hmac.new(
+        secret.encode(),
+        body.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    return f"sha256={sig}"
+
 
 async def deliver(delivery_id: str):
     async with AsyncSessionLocal() as db:
 
         result = await db.execute(text("""
-            SELECT wd.id, wd.attempt_count, wd.status,
-                   s.endpoint_url, e.payload, e.event_type
+            SELECT wd.id,wd.attempt_count,wd.status,
+                   s.id AS subscription_id,
+                   s.endpoint_url,s.secret,
+                   e.payload,e.event_type
             FROM webhook_deliveries wd
             JOIN subscriptions s ON s.id = wd.subscription_id
             JOIN events e        ON e.id = wd.event_id
@@ -32,6 +48,59 @@ async def deliver(delivery_id: str):
             print(f"[worker] already delivered — skipping")
             return
 
+        # --- CIRCUIT BREAKER CHECK ---
+        state = await get_circuit_state(db, str(row.subscription_id))
+
+        if state == "OPEN":
+            print(f"[worker] circuit OPEN — delaying {delivery_id}")
+
+            retry_at = asyncio.get_event_loop().time() + 60
+
+            await redis.zadd(
+                "webhook_retry_queue",
+                {delivery_id: retry_at}
+            )
+
+            await db.execute(text("""
+                UPDATE webhook_deliveries
+                SET status = 'PENDING',
+                    error_message = 'Circuit breaker OPEN - waiting',
+                    next_attempt_at = NOW() + INTERVAL '60 seconds',
+                    updated_at = NOW()
+                WHERE id = :id
+            """), {"id": delivery_id})
+
+            await db.commit()
+            return
+        
+        state = await get_circuit_state(db, str(row.subscription_id))            
+            
+        if state == "OPEN":
+            print(f"[worker] circuit OPEN — delaying {delivery_id}")
+
+            retry_at = asyncio.get_event_loop().time() + 60
+
+            await redis.zadd(
+                "webhook_retry_queue",
+                {delivery_id: retry_at}
+            )
+
+            await db.execute(text("""
+                UPDATE webhook_deliveries
+                SET status = 'PENDING',
+                    error_message = 'Waiting for circuit recovery',
+                    next_attempt_at = NOW() + INTERVAL '60 seconds',
+                    updated_at = NOW()
+                WHERE id = :id
+            """), {"id": delivery_id})
+
+            await db.commit()
+            return
+
+        if state == "HALF_OPEN":
+            print(f"[worker] circuit HALF_OPEN — testing {delivery_id}")
+
+
         await db.execute(text("""
             UPDATE webhook_deliveries
             SET status = 'IN_FLIGHT',
@@ -45,13 +114,16 @@ async def deliver(delivery_id: str):
 
         try:
             async with aiohttp.ClientSession() as session:
+                payload = {"event_type": row.event_type, "payload": row.payload}
+                signature = sign_payload(row.secret, payload)
                 async with session.post(
                     row.endpoint_url,
                     json=payload,
                     headers={
                         "Content-Type": "application/json",
                         "X-Webhook-Delivery": delivery_id,
-                        "X-Webhook-Attempt": str(row.attempt_count + 1)
+                        "X-Webhook-Attempt": str(row.attempt_count + 1),
+                        "X-Webhook-Signature": signature
                     },
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
@@ -66,6 +138,8 @@ async def deliver(delivery_id: str):
                         """), {"id": delivery_id, "code": response.status})
                         await db.commit()
                         print(f"[worker] ✓ delivered {delivery_id} → {response.status}")
+                        
+                        await record_success(db, str(row.subscription_id))
                     else:
                         await handle_failure(
                             db, delivery_id,
@@ -75,6 +149,7 @@ async def deliver(delivery_id: str):
 
         except Exception as e:
             print(f"[worker] ✗ exception: {e}")
+            await record_failure(db, str(row.subscription_id))
             await handle_failure(
                 db, delivery_id,
                 row.attempt_count + 1,
@@ -103,6 +178,7 @@ async def handle_failure(
     print(f"[worker] ✗ failed — retry in {delay}s (attempt {attempt_count})")
 
     retry_at = asyncio.get_event_loop().time() + delay
+
     await redis.zadd("webhook_retry_queue", {delivery_id: retry_at})
 
     await db.execute(text("""
@@ -115,6 +191,7 @@ async def handle_failure(
         WHERE id = :id
     """), {"id": delivery_id, "code": status_code, "error": error_message, "delay": delay})
     await db.commit()
+    
 
 
 async def retry_scheduler():
