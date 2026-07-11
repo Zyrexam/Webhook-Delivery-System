@@ -1,14 +1,13 @@
 import uuid
 import secrets
-import hashlib
-import hmac
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 from datetime import datetime
-from database import get_db
+from ..database import get_db
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
@@ -16,6 +15,7 @@ router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 class SubscriptionCreate(BaseModel):
     endpoint_url: HttpUrl
     event_type: str
+
 
 class SubscriptionResponse(BaseModel):
     id: str
@@ -27,6 +27,7 @@ class SubscriptionResponse(BaseModel):
     circuit_state: Optional[str] = None
     failure_count: Optional[int] = None
 
+
 class SubscriptionUpdate(BaseModel):
     is_active: bool
 
@@ -37,7 +38,7 @@ async def create_subscription(
     db: AsyncSession = Depends(get_db)
 ):
     sub_id = str(uuid.uuid4())
-    secret = secrets.token_hex(32) 
+    secret = secrets.token_hex(32)
     await db.execute(text("""
         INSERT INTO subscriptions (id, endpoint_url, event_type, is_active, secret)
         VALUES (:id, :url, :event_type, TRUE, :secret)
@@ -122,9 +123,16 @@ async def update_subscription(
 
 @router.delete("/{sub_id}")
 async def delete_subscription(sub_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(text("""
-        DELETE FROM subscriptions WHERE id = :id RETURNING id
-    """), {"id": sub_id})
+    try:
+        result = await db.execute(text("""
+            DELETE FROM subscriptions WHERE id = :id RETURNING id
+        """), {"id": sub_id})
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete subscription with existing deliveries. Disable it instead."
+        )
 
     if not result.fetchone():
         raise HTTPException(status_code=404, detail="Subscription not found")

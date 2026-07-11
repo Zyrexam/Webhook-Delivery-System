@@ -1,7 +1,7 @@
 from fastapi import FastAPI
-from routers.events import router as events_router
-from routers.subscriptions import router as subscriptions_router
-from routers.deliveries import router as deliveries_router
+from .routers.events import router as events_router
+from .routers.subscriptions import router as subscriptions_router
+from .routers.deliveries import router as deliveries_router
 
 app = FastAPI(
     title="Webhook Delivery System",
@@ -11,6 +11,7 @@ app = FastAPI(
 app.include_router(events_router)
 app.include_router(subscriptions_router)
 app.include_router(deliveries_router)
+
 
 @app.get("/")
 async def root():

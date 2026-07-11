@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b"/>
+    </marker>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <rect width="600" height="300" fill="url(#bg)" rx="12"/>
+  <text x="300" y="28" text-anchor="middle" fill="#f1f5f9" font-size="15" font-weight="700">Circuit Breaker — Three States</text>
+
+  <!-- CLOSED state -->
+  <rect x="50" y="55" width="140" height="60" rx="30" fill="url(#green)" filter="url(#shadow)"/>
+  <text x="120" y="85" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">🔒 CLOSED</text>
+  <text x="120" y="102" text-anchor="middle" fill="#dcfce7" font-size="9">Normal operation</text>
+
+  <!-- OPEN state -->
+  <rect x="410" y="55" width="140" height="60" rx="30" fill="url(#red)" filter="url(#shadow)"/>
+  <text x="480" y="85" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">🔓 OPEN</text>
+  <text x="480" y="102" text-anchor="middle" fill="#fecaca" font-size="9">Rejecting requests</text>
+
+  <!-- HALF_OPEN state -->
+  <rect x="180" y="190" width="200" height="60" rx="30" fill="url(#orange)" filter="url(#shadow)"/>
+  <text x="280" y="220" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">🔶 HALF_OPEN</text>
+  <text x="280" y="237" text-anchor="middle" fill="#fef3c7" font-size="9">Testing one request...</text>
+
+  <!-- CLOSED → OPEN (5 failures) -->
+  <path d="M 190 85 L 405 85" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow-red)" fill="none"/>
+  <text x="298" y="75" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="600">5 failures</text>
+
+  <!-- OPEN → HALF_OPEN (timeout) -->
+  <path d="M 480 118 L 380 195" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow-orange)" fill="none"/>
+  <text x="440" y="160" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">60s cooldown</text>
+
+  <!-- HALF_OPEN → CLOSED (success) -->
+  <path d="M 240 190 L 170 118" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green)" fill="none"/>
+  <text x="175" y="155" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="600">Success</text>
+
+  <!-- HALF_OPEN → OPEN (failure) -->
+  <path d="M 380 220 L 460 118" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow-red)" fill="none"/>
+  <text x="440" y="195" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="600">Failure</text>
+</svg>

@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Building a Reliable Webhook Delivery System: The 8 Decisions That Mattered</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    line-height: 1.8;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    padding: 80px 0 60px;
+    text-align: center;
+    border-bottom: 1px solid #1e293b;
+  }
+  .hero-badge {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 20px;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: 42px;
+    font-weight: 800;
+    line-height: 1.2;
+    background: linear-gradient(135deg, #f1f5f9 0%, #60a5fa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+    letter-spacing: -0.5px;
+  }
+  .hero p {
+    font-size: 18px;
+    color: #94a3b8;
+    max-width: 600px;
+    margin: 0 auto;
+    font-weight: 300;
+  }
+  .hero-meta {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #64748b;
+    font-size: 14px;
+  }
+  .hero-meta .dot { width: 4px; height: 4px; border-radius: 50%; background: #475569; }
+
+  /* CONTENT */
+  .content { padding: 48px 0 80px; }
+
+  h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 48px 0 16px;
+    color: #f1f5f9;
+    letter-spacing: -0.3px;
+  }
+  h2 .num {
+    display: inline-block;
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
+    text-align: center;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    margin-right: 12px;
+  }
+
+  h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 28px 0 12px;
+    color: #cbd5e1;
+  }
+
+  p { margin-bottom: 16px; color: #cbd5e1; font-size: 16px; }
+
+  p.lead {
+    font-size: 18px;
+    color: #94a3b8;
+    font-style: italic;
+    padding: 16px 24px;
+    border-left: 3px solid #3b82f6;
+    background: rgba(59, 130, 246, 0.06);
+    border-radius: 0 8px 8px 0;
+    margin: 24px 0;
+  }
+
+  .highlight {
+    padding: 20px 24px;
+    border-radius: 8px;
+    margin: 20px 0;
+    border: 1px solid;
+  }
+  .highlight-blue {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.2);
+  }
+  .highlight-green {
+    background: rgba(34, 197, 94, 0.08);
+    border-color: rgba(34, 197, 94, 0.2);
+  }
+  .highlight-red {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+  .highlight-orange {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.2);
+  }
+  .highlight-purple {
+    background: rgba(139, 92, 246, 0.08);
+    border-color: rgba(139, 92, 246, 0.2);
+  }
+
+  .highlight h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .highlight-blue h4 { color: #60a5fa; }
+  .highlight-green h4 { color: #4ade80; }
+  .highlight-red h4 { color: #f87171; }
+  .highlight-orange h4 { color: #fbbf24; }
+  .highlight-purple h4 { color: #a78bfa; }
+
+  /* CODE */
+  pre {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #e2e8f0;
+    position: relative;
+  }
+  pre .lang-tag {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    color: #64748b;
+    background: #0f172a;
+    padding: 2px 10px;
+    border-radius: 4px;
+  }
+  pre code { font-family: inherit; }
+  .comment { color: #64748b; }
+  .keyword { color: #818cf8; }
+  .string { color: #34d399; }
+  .function { color: #60a5fa; }
+  .number { color: #fbbf24; }
+
+  /* DIAGRAM CONTAINER */
+  .diagram-container {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 24px 0;
+    text-align: center;
+    overflow: hidden;
+  }
+  .diagram-container svg {
+    max-width: 100%;
+    height: auto;
+  }
+  .diagram-caption {
+    text-align: center;
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  /* QUOTE */
+  blockquote {
+    padding: 16px 24px;
+    margin: 24px 0;
+    border-left: 3px solid #f59e0b;
+    background: rgba(245, 158, 11, 0.06);
+    border-radius: 0 8px 8px 0;
+    font-style: italic;
+    color: #94a3b8;
+  }
+
+  /* TABLE */
+  .table-wrapper {
+    overflow-x: auto;
+    margin: 24px 0;
+    border: 1px solid #334155;
+    border-radius: 8px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th {
+    background: #1e293b;
+    color: #94a3b8;
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid #334155;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #1e293b;
+    color: #cbd5e1;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(59, 130, 246, 0.04); }
+
+  /* BUG TAG */
+  .bug-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .lesson-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* DECISION CARD */
+  .decision-card {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 28px;
+    margin: 32px 0;
+  }
+  .decision-card h3 {
+    margin-top: 0;
+    color: #f1f5f9;
+    font-size: 22px;
+  }
+
+  /* SEPARATOR */
+  .separator {
+    text-align: center;
+    margin: 48px 0;
+    color: #334155;
+    font-size: 24px;
+    letter-spacing: 8px;
+  }
+
+  /* LESSONS GRID */
+  .lessons-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 24px 0;
+  }
+  @media (max-width: 640px) { .lessons-grid { grid-template-columns: 1fr; } }
+  .lesson-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .lesson-card .num-small {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    border-radius: 6px;
+    background: #3b82f6;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    margin-right: 8px;
+  }
+  .lesson-card h4 {
+    display: inline;
+    color: #e2e8f0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .lesson-card p {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #94a3b8;
+  }
+
+  /* FOOTER */
+  .footer {
+    text-align: center;
+    padding: 48px 0;
+    border-top: 1px solid #1e293b;
+    color: #475569;
+    font-size: 14px;
+  }
+
+  /* TOC */
+  .toc {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 32px 0;
+  }
+  .toc h3 { margin-top: 0; color: #f1f5f9; font-size: 16px; }
+  .toc ol {
+    margin-top: 12px;
+    padding-left: 20px;
+    color: #94a3b8;
+  }
+  .toc li {
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+  .toc li a { color: #60a5fa; text-decoration: none; }
+  .toc li a:hover { text-decoration: underline; }
+
+  .inline-bug {
+    display: inline-block;
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Decision block with problem/options/choice */
+  .decision-flow {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  @media (max-width: 640px) { .decision-flow { grid-template-columns: 1fr; } }
+  .flow-box {
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+  }
+  .flow-box .emoji { font-size: 28px; display: block; margin-bottom: 8px; }
+  .flow-box .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .flow-box .text { font-size: 13px; margin-top: 6px; color: #cbd5e1; }
+  .flow-problem { background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); }
+  .flow-problem .label { color: #f87171; }
+  .flow-options { background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); }
+  .flow-options .label { color: #fbbf24; }
+  .flow-choice { background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); }
+  .flow-choice .label { color: #4ade80; }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 28px; }
+    .container { padding: 0 16px; }
+    pre { font-size: 12px; padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-badge">⚡ Engineering Deep Dive</div>
+    <h1>Building a Reliable Webhook Delivery System:<br>The 8 Decisions That Mattered</h1>
+    <p>How we built a production-grade webhook delivery system with FastAPI, Redis, and PostgreSQL — and the design decisions that saved us at 2 AM.</p>
+    <div class="hero-meta">
+      <span>📅 March 2025</span>
+      <span class="dot"></span>
+      <span>📖 15 min read</span>
+      <span class="dot"></span>
+      <span>🏷️ Python · FastAPI · Redis · PostgreSQL</span>
+    </div>
+  </div>
+</section>
+
+<!-- CONTENT -->
+<section class="content">
+<div class="container">
+
+  <p class="lead">
+    "Your payment is confirmed! Here's your receipt." — Three seconds later, the customer is screaming in DMs because they got charged twice.
+  </p>
+
+  <p>That's the moment you realize: <strong>sending webhooks is easy. Delivering them reliably is brutally hard.</strong></p>
+
+  <p>When I set out to build a webhook delivery system, I thought it'd be straightforward — accept an event, make an HTTP call, done. But the real world has other plans. Networks blink. Workers crash. Subscribers go down at 3 AM. And somehow, every single event needs to arrive exactly when it should, not a moment sooner, not a moment later.</p>
+
+  <p>After weeks of building, breaking, and rebuilding, here are the <strong>8 engineering decisions</strong> that shaped our system. Each one tells the same story: <strong>We hit a wall. We looked at our options. We chose the one that didn't break at 2 AM.</strong></p>
+
+  <!-- TABLE OF CONTENTS -->
+  <div class="toc">
+    <h3>📋 Table of Contents</h3>
+    <ol>
+      <li><a href="#decision-1">Synchronous vs Async Delivery</a></li>
+      <li><a href="#decision-2">At-Least-Once vs Exactly-Once</a></li>
+      <li><a href="#decision-3">Exponential Backoff</a></li>
+      <li><a href="#decision-4">Circuit Breaker Pattern</a></li>
+      <li><a href="#decision-5">Crash Recovery (The Reaper)</a></li>
+      <li><a href="#decision-6">HMAC Signature Verification</a></li>
+      <li><a href="#decision-7">Postgres + Redis Dual Storage</a></li>
+      <li><a href="#decision-8">202 Accepted Status Code</a></li>
+    </ol>
+  </div>
+
+  <!-- THE SETUP -->
+  <h2><span class="num">⚡</span> The Setup: What We're Building</h2>
+
+  <p>A webhook delivery system is the postal service of the internet. Someone sends an event (like <code>order.placed</code>), and we need to deliver it to every subscriber who's listening for that event — via HTTP POST to their endpoint.</p>
+
+  <pre><span class="lang-tag">HTTP Request</span><span class="comment"># What the caller sends</span>
+POST /events
+{
+  <span class="string">"event_type"</span>: <span class="string">"order.placed"</span>,
+  <span class="string">"payload"</span>: { <span class="string">"order_id"</span>: <span class="string">"ORD-123"</span>, <span class="string">"amount"</span>: 99.99 }
+}
+
+<span class="comment"># What we do with it</span>
+→ Find all subscribers for "order.placed"
+→ Create a delivery record for each
+→ Push each delivery to a queue
+→ Worker picks it up and makes the HTTP call
+→ Retry if it fails, give up if it never works</pre>
+
+  <p>Simple, right? Let me show you where it gets complicated.</p>
+
+  <div class="separator">✦ ✦ ✦</div>
+
+  <!-- ARCHITECTURE DIAGRAM -->
+  <h2>🏗️ System Architecture Overview</h2>
+  <p>Before diving into each decision, here's the big picture of how all the pieces fit together:</p>
+
+  <div class="diagram-container">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" font-family="system-ui, -apple-system, sans-serif" style="max-width:100%;height:auto">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker>
+        <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/></marker>
+        <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e"/></marker>
+        <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444"/></marker>
+        <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b"/></marker>
+        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1e293b"/></linearGradient>
+        <linearGradient id="box-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#2563eb"/></linearGradient>
+        <linearGradient id="box-purple" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient>
+        <linearGradient id="box-green" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#16a34a"/></linearGradient>
+        <linearGradient id="box-orange" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#d97706"/></linearGradient>
+        <linearGradient id="box-red" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#dc2626"/></linearGradient>
+        <linearGradient id="box-slate" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#475569"/><stop offset="100%" stop-color="#334155"/></linearGradient>
+        <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.3"/></filter>
+      </defs>
+      <rect width="1100" height="720" fill="url(#bg)" rx="12"/>
+      <text x="550" y="36" text-anchor="middle" fill="#f1f5f9" font-size="20" font-weight="700" letter-spacing="1">Webhook Delivery System Architecture</text>
+      <text x="550" y="56" text-anchor="middle" fill="#94a3b8" font-size="12">Event Ingestion → Queuing → Delivery → Recovery</text>
+      <rect x="60" y="90" width="180" height="64" rx="8" fill="#475569" stroke="#64748b" stroke-width="1.5" filter="url(#shadow)"/>
+      <circle cx="95" cy="122" r="14" fill="#64748b"/>
+      <text x="95" y="127" text-anchor="middle" fill="#f1f5f9" font-size="12" font-weight="600">📤</text>
+      <text x="118" y="118" fill="#f1f5f9" font-size="13" font-weight="600">Sender</text>
+      <text x="118" y="136" fill="#94a3b8" font-size="10">External System</text>
+      <line x1="240" y1="122" x2="310" y2="122" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-blue)"/>
+      <text x="275" y="112" text-anchor="middle" fill="#60a5fa" font-size="9" font-weight="500">POST /events</text>
+      <rect x="320" y="80" width="200" height="84" rx="8" fill="url(#box-blue)" filter="url(#shadow)"/>
+      <text x="420" y="107" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">FastAPI Server</text>
+      <text x="420" y="124" text-anchor="middle" fill="#bfdbfe" font-size="10">main.py + routers</text>
+      <text x="420" y="144" text-anchor="middle" fill="#dbeafe" font-size="9">1️⃣ Save event → Postgres</text>
+      <text x="420" y="158" text-anchor="middle" fill="#dbeafe" font-size="9">2️⃣ Create delivery rows</text>
+      <line x1="420" y1="164" x2="420" y2="220" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green)"/>
+      <text x="440" y="195" fill="#4ade80" font-size="9" font-weight="500">INSERT</text>
+      <rect x="295" y="228" width="250" height="88" rx="8" fill="url(#box-green)" filter="url(#shadow)"/>
+      <text x="420" y="255" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">PostgreSQL</text>
+      <text x="420" y="272" text-anchor="middle" fill="#bbf7d0" font-size="10">Source of Truth</text>
+      <text x="420" y="290" text-anchor="middle" fill="#dcfce7" font-size="9">events 📄 | subscriptions 📋</text>
+      <text x="420" y="304" text-anchor="middle" fill="#dcfce7" font-size="9">webhook_deliveries 📦</text>
+      <line x1="520" y1="122" x2="670" y2="122" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow-orange)"/>
+      <text x="595" y="112" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="500">lpush delivery IDs</text>
+      <line x1="420" y1="80" x2="240" y2="80" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow-green)" stroke-dasharray="5,3"/>
+      <text x="330" y="73" text-anchor="middle" fill="#4ade80" font-size="9">202 Accepted</text>
+      <rect x="680" y="90" width="360" height="200" rx="10" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6,3" filter="url(#shadow)"/>
+      <text x="860" y="115" text-anchor="middle" fill="#f59e0b" font-size="12" font-weight="600">Redis 7</text>
+      <rect x="700" y="130" width="150" height="70" rx="6" fill="url(#box-orange)" opacity="0.9"/>
+      <text x="775" y="152" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">📋 webhook_queue</text>
+      <text x="775" y="168" text-anchor="middle" fill="#fef3c7" font-size="9">LIST (BRPOP)</text>
+      <text x="775" y="184" text-anchor="middle" fill="#fef3c7" font-size="9">Active jobs</text>
+      <rect x="870" y="130" width="150" height="70" rx="6" fill="url(#box-orange)" opacity="0.9"/>
+      <text x="945" y="152" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">⏰ webhook_retry</text>
+      <text x="945" y="168" text-anchor="middle" fill="#fef3c7" font-size="9">Sorted Set</text>
+      <text x="945" y="184" text-anchor="middle" fill="#fef3c7" font-size="9">Delayed retries</text>
+      <path d="M 850 165 L 865 165" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+      <rect x="60" y="360" width="220" height="90" rx="8" fill="url(#box-purple)" filter="url(#shadow)"/>
+      <text x="170" y="388" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">🛠️ Delivery Worker</text>
+      <text x="170" y="406" text-anchor="middle" fill="#ddd6fe" font-size="10">worker.py</text>
+      <text x="170" y="425" text-anchor="middle" fill="#ede9fe" font-size="9">BRPOP → Check circuit breaker</text>
+      <text x="170" y="440" text-anchor="middle" fill="#ede9fe" font-size="9">→ Sign HMAC → HTTP POST</text>
+      <path d="M 280 405 L 695 405" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow-orange)"/>
+      <text x="490" y="395" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="500">BRPOP pulls jobs</text>
+      <line x1="170" y1="450" x2="170" y2="520" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrow)"/>
+      <text x="192" y="490" fill="#a78bfa" font-size="9" font-weight="500">HTTP POST + HMAC</text>
+      <rect x="60" y="528" width="220" height="80" rx="8" fill="url(#box-green)" filter="url(#shadow)"/>
+      <text x="170" y="555" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">🎯 Subscriber</text>
+      <text x="170" y="573" text-anchor="middle" fill="#bbf7d0" font-size="10">webhook_receiver.py</text>
+      <text x="170" y="591" text-anchor="middle" fill="#dcfce7" font-size="9">Verify signature → Process → 200 OK</text>
+      <path d="M 280 380 L 400 380 L 400 316" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow-green)" fill="none" stroke-dasharray="5,3"/>
+      <text x="340" y="373" fill="#4ade80" font-size="9">Read/Update status</text>
+      <rect x="520" y="360" width="240" height="80" rx="8" fill="url(#box-orange)" filter="url(#shadow)"/>
+      <text x="640" y="388" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">⏳ Retry Scheduler</text>
+      <text x="640" y="406" text-anchor="middle" fill="#fef3c7" font-size="10">worker.py (co-routine)</text>
+      <text x="640" y="424" text-anchor="middle" fill="#fef3c7" font-size="9">Every 5s: ZRANGEBYSCORE → LPUSH</text>
+      <path d="M 760 380 L 865 380 L 865 205" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-orange)" fill="none"/>
+      <text x="810" y="365" fill="#fbbf24" font-size="9">Move ready jobs</text>
+      <path d="M 640 360 L 640 330 L 775 330 L 775 205" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-orange)" fill="none"/>
+      <text x="710" y="323" fill="#fbbf24" font-size="9">Re-queue</text>
+      <rect x="520" y="480" width="240" height="80" rx="8" fill="url(#box-red)" filter="url(#shadow)"/>
+      <text x="640" y="508" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">💀 Crash Reaper</text>
+      <text x="640" y="526" text-anchor="middle" fill="#fecaca" font-size="10">reaper.py</text>
+      <text x="640" y="544" text-anchor="middle" fill="#fee2e2" font-size="9">Every 30s: Rescue stuck IN_FLIGHT</text>
+      <path d="M 520 520 L 430 520 L 430 316" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow-green)" fill="none" stroke-dasharray="5,3"/>
+      <text x="470" y="513" fill="#4ade80" font-size="9">Find + reset stuck jobs</text>
+      <path d="M 640 560 L 640 590 L 775 590 L 775 470 L 775 205" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-orange)" fill="none" stroke-dasharray="5,3"/>
+      <text x="740" y="583" fill="#fbbf24" font-size="9">Re-queue rescued</text>
+      <rect x="60" y="640" width="980" height="60" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <text x="80" y="662" fill="#94a3b8" font-size="11" font-weight="600">Legend:</text>
+      <rect x="150" y="650" width="12" height="12" rx="3" fill="#3b82f6"/><text x="168" y="662" fill="#cbd5e1" font-size="10">Ingestion</text>
+      <rect x="250" y="650" width="12" height="12" rx="3" fill="#8b5cf6"/><text x="268" y="662" fill="#cbd5e1" font-size="10">Worker</text>
+      <rect x="340" y="650" width="12" height="12" rx="3" fill="#22c55e"/><text x="358" y="662" fill="#cbd5e1" font-size="10">Storage</text>
+      <rect x="440" y="650" width="12" height="12" rx="3" fill="#f59e0b"/><text x="458" y="662" fill="#cbd5e1" font-size="10">Queue</text>
+      <rect x="530" y="650" width="12" height="12" rx="3" fill="#ef4444"/><text x="548" y="662" fill="#cbd5e1" font-size="10">Recovery</text>
+      <line x1="640" y1="656" x2="690" y2="656" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <text x="698" y="662" fill="#cbd5e1" font-size="10">Flow</text>
+      <line x1="790" y1="656" x2="840" y2="656" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrow)"/>
+      <text x="848" y="662" fill="#cbd5e1" font-size="10">Read/Response</text>
+      <text x="60" y="690" fill="#64748b" font-size="9">① POST /events → ② Save to Postgres → ③ Create deliveries → ④ Push to Redis → ⑤ Return 202 → ⑥ Worker picks up → ⑦ HTTP POST subscriber</text>
+    </svg>
+    <div class="diagram-caption">Figure 1: Complete system architecture showing event ingestion, queuing, delivery, and crash recovery</div>
+  </div>
+
+  <div class="separator">✦ ✦ ✦</div>
+
+  <!-- DECISION 1 -->
+  <div class="decision-card" id="decision-1">
+    <h2><span class="num">1</span> Stop Making the Sender Wait</h2>
+
+    <div class="decision-flow">
+      <div class="flow-box flow-problem">
+        <span class="emoji">😰</span>
+        <span class="label">Problem</span>
+        <div class="text">Synchronous delivery makes the caller wait for all subscribers to respond</div>
+      </div>
+      <div class="flow-box flow-options">
+        <span class="emoji">🤔</span>
+        <span class="label">Options</span>
+        <div class="text">Sync / BackgroundTasks / Message Queue</div>
+      </div>
+      <div class="flow-box flow-choice">
+        <span class="emoji">✅</span>
+        <span class="label">Choice</span>
+        <div class="text">Redis LIST + BRPOP async queue</div>
+      </div>
+    </div>
+
+    <p>In the naive version, we deliver webhooks <strong>inside the HTTP request</strong>. The caller sends an event, and we synchronously call every subscriber before responding.</p>
+
+    <pre><span class="lang-tag">python</span><span class="comment"># ❌ Naive synchronous approach</span>
+<span class="keyword">@app</span>.post(<span class="string">"/events"</span>)
+<span class="keyword">async def</span> <span class="function">create_event</span>(event):
+    <span class="comment"># Save event</span>
+    <span class="comment"># Find subscribers</span>
+    <span class="comment"># For each subscriber: make HTTP call... and wait 😱</span>
+    <span class="comment"># Only now return a response</span></pre>
+
+    <p>This is a disaster. One slow subscriber holds up everyone. If the subscriber takes 30 seconds, the caller's connection times out. The caller retries. Now we have <strong>duplicate events</strong>.</p>
+
+    <div class="highlight highlight-green">
+      <h4>✅ What We Chose</h4>
+      <p><strong>Redis LIST with BRPOP</strong> — We save the event to Postgres first (source of truth), create delivery rows, push delivery IDs to a Redis list, and return <code>202 Accepted</code> instantly.</p>
+    </div>
+
+    <pre><span class="lang-tag">python</span><span class="keyword">@router</span>.post(<span class="string">"/events"</span>, status_code=<span class="number">202</span>)
+<span class="keyword">async def</span> <span class="function">ingest_event</span>(event, db):
+    <span class="comment"># 1. Save to Postgres first ✅</span>
+    event_id = str(uuid.uuid4())
+    <span class="keyword">await</span> db.execute(<span class="string">"INSERT INTO events ..."</span>)
+    
+    <span class="comment"># 2. Create delivery rows for each subscriber</span>
+    delivery_ids = []
+    <span class="keyword">for</span> sub <span class="keyword">in</span> active_subscriptions:
+        delivery_id = str(uuid.uuid4())
+        <span class="keyword">await</span> db.execute(<span class="string">"INSERT INTO webhook_deliveries ..."</span>)
+        delivery_ids.append(delivery_id)
+    
+    <span class="keyword">await</span> db.commit()
+    
+    <span class="comment"># 3. Push to Redis queue</span>
+    <span class="keyword">for</span> delivery_id <span class="keyword">in</span> delivery_ids:
+        <span class="keyword">await</span> redis.lpush(<span class="string">"webhook_queue"</span>, delivery_id)
+    
+    <span class="comment"># 4. Return immediately — no waiting! 🚀</span>
+    <span class="keyword">return</span> {<span class="string">"accepted"</span>: <span class="keyword">True</span>, <span class="string">"event_id"</span>: event_id}</pre>
+
+    <p>Meanwhile, the worker blocks on <code>BRPOP</code> waiting for jobs — it's efficient, no polling:</p>
+
+    <pre><span class="lang-tag">python</span><span class="keyword">while</span> <span class="keyword">True</span>:
+    job = <span class="keyword">await</span> redis.brpop([<span class="string">"webhook_queue"</span>], timeout=<span class="number">5</span>)
+    <span class="keyword">if</span> job:
+        _, delivery_id = job
+        <span class="keyword">await</span> deliver(delivery_id)  <span class="comment"># Make the actual HTTP call</span></pre>
+
+    <p><strong>Why this works:</strong> The sender gets <code>202 Accepted</code> immediately — no waiting. If the worker crashes, the delivery is safe in Postgres (as <code>PENDING</code>). When the worker comes back, it picks up where it left off. Nothing is lost.</p>
+  </div>
+
+  <!-- DECISION 2 -->
+  <div class="decision-card" id="decision-2">
+    <h2><span class="num">2</span> At-Least-Once, Not Exactly-Once</h2>
+
+    <div class="decision-flow">
+      <div class="flow-box flow-problem">
+        <span class="emoji">🔁</span>
+        <span class="label">Problem</span>
+        <div class="text">Network failures cause lost responses — subscriber gets duplicate deliveries</div>
+      </div>
+      <div class="flow-box flow-options">
+        <span class="emoji">🤔</span>
+        <span class="label">Options</span>
+        <div class="text">At-most-once / Exactly-once / At-least-once + idempotency</div>
+      </div>
+      <div class="flow-box flow-choice">
+        <span class="emoji">✅</span>
+        <span class="label">Choice</span>
+        <div class="text">At-least-once delivery + idempotency check</div>
+      </div>
+    </div>
+
+    <p>Here's a fun scenario: The worker sends the HTTP request. The subscriber receives it, processes it successfully, and sends back <code>200 OK</code>. But the <code>200 OK</code> response is <strong>lost in transit</strong> (network hiccup, proxy timeout, cosmic rays).</p>
+
+    <p>The worker thinks it failed. It retries. Now the subscriber gets the same webhook <strong>twice</strong>.</p>
+
+    <div class="highlight highlight-green">
+      <h4>✅ What We Chose</h4>
+      <p><strong>At-least-once + idempotency check.</strong> Before the worker touches a delivery, it checks the database to see if it's already been delivered. If yes, skip.</p>
+    </div>
+
+    <pre><span class="lang-tag">python</span>row = <span class="keyword">await</span> db.execute(<span class="string">"""
+    SELECT status FROM webhook_deliveries WHERE id = :delivery_id
+"""</span>)
+<span class="keyword">if</span> row.status == <span class="string">"DELIVERED"</span>:
+    print(<span class="string">"Already delivered — skipping"</span>)
+    <span class="keyword">return</span>  <span class="comment"># Safe. Don't double-process.</span></pre>
+
+    <p>Every webhook also includes a unique <code>X-Webhook-Delivery</code> header (a UUID). Subscribers can use this to deduplicate on their side too.</p>
+
+    <blockquote>
+      <strong>Engineering lesson:</strong> Don't let perfect be the enemy of reliable. Exactly-once delivery across a network requires distributed transactions — too expensive. Stripe, GitHub, and SendGrid all use at-least-once with idempotency.
+    </blockquote>
+  </div>
+
+  <!-- DECISION 3 -->
+  <div class="decision-card" id="decision-3">
+    <h2><span class="num">3</span> Wait Longer Each Time</h2>
+
+    <div class="decision-flow">
+      <div class="flow-box flow-problem">
+        <span class="emoji">⏱️</span>
+        <span class="label">Problem</span>
+        <div class="text">Retrying immediately = DDoS. Waiting too long = delayed events.</div>
+      </div>
+      <div class="flow-box flow-options">
+        <span class="emoji">🤔</span>
+        <span class="label">Options</span>
+        <div class="text">Fixed delay / Immediate retry / Exponential backoff</div>
+      </div>
+      <div class="flow-box flow-choice">
+        <span class="emoji">✅</span>
+        <span class="label">Choice</span>
+        <div class="text">Exponential backoff: 2^attempt, max 5 attempts</div>
+      </div>
+    </div>
+
+    <p>The subscriber's server is down. If we retry immediately, it fails again. If we retry in a tight loop, we <strong>DDoS</strong> the subscriber. But if we wait too long, time-sensitive events miss their window.</p>
+
+    <div class="diagram-container">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 260" font-family="system-ui, -apple-system, sans-serif" style="max-width:100%;height:auto">
+        <defs>
+          <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1e293b"/></linearGradient>
+          <filter id="shadow2"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/></filter>
+          <marker id="arrow-red2" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 0 L 5 10 z" fill="#ef4444"/></marker>
+        </defs>
+        <rect width="700" height="260" fill="url(#bg2)" rx="12"/>
+        <text x="350" y="28" text-anchor="middle" fill="#f1f5f9" font-size="15" font-weight="700">Exponential Backoff — Retry Timing</text>
+        <text x="350" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">delay = 2^attempt  |  max 5 attempts</text>
+        <rect x="60" y="155" width="60" height="30" rx="6" fill="#22c55e" filter="url(#shadow2)"/>
+        <text x="90" y="175" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">2s</text>
+        <rect x="140" y="135" width="80" height="30" rx="6" fill="#16a34a" filter="url(#shadow2)"/>
+        <text x="180" y="155" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">4s</text>
+        <rect x="240" y="115" width="100" height="30" rx="6" fill="#15803d" filter="url(#shadow2)"/>
+        <text x="290" y="135" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">8s</text>
+        <rect x="360" y="95" width="120" height="30" rx="6" fill="#166534" filter="url(#shadow2)"/>
+        <text x="420" y="115" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">16s</text>
+        <rect x="500" y="75" width="140" height="30" rx="6" fill="#14532d" filter="url(#shadow2)"/>
+        <text x="570" y="95" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">32s</text>
+        <rect x="500" y="175" width="140" height="40" rx="20" fill="#dc2626" filter="url(#shadow2)"/>
+        <text x="570" y="200" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">💀 DEAD</text>
+        <line x1="570" y1="108" x2="570" y2="170" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow-red2)"/>
+        <text x="90" y="208" text-anchor="middle" fill="#94a3b8" font-size="9">Attempt 1</text>
+        <text x="180" y="208" text-anchor="middle" fill="#94a3b8" font-size="9">Attempt 2</text>
+        <text x="290" y="208" text-anchor="middle" fill="#94a3b8" font-size="9">Attempt 3</text>
+        <text x="420" y="208" text-anchor="middle" fill="#94a3b8" font-size="9">Attempt 4</text>
+        <text x="570" y="208" text-anchor="middle" fill="#94a3b8" font-size="9">Attempt 5</text>
+        <line x1="60" y1="200" x2="640" y2="200" stroke="#475569" stroke-width="1"/>
+        <line x1="60" y1="196" x2="60" y2="204" stroke="#64748b" stroke-width="1"/>
+        <text x="60" y="222" text-anchor="middle" fill="#64748b" font-size="8">0s</text>
+        <text x="200" y="222" text-anchor="middle" fill="#64748b" font-size="8">~6s</text>
+        <text x="340" y="222" text-anchor="middle" fill="#64748b" font-size="8">~14s</text>
+        <text x="480" y="222" text-anchor="middle" fill="#64748b" font-size="8">~30s</text>
+        <text x="620" y="222" text-anchor="middle" fill="#64748b" font-size="8">~62s</text>
+      </svg>
+      <div class="diagram-caption">Figure 2: Exponential backoff doubles the delay with each attempt. After 5 failures, delivery is marked DEAD.</div>
+    </div>
+
+    <pre><span class="lang-tag">python</span>BACKOFF_BASE = <span class="number">2</span>
+MAX_ATTEMPTS = <span class="number">5</span>
+
+<span class="keyword">def</span> <span class="function">calc_backoff</span>(attempt: int) -> int:
+    <span class="keyword">return</span> BACKOFF_BASE ** attempt  <span class="comment"># 2, 4, 8, 16, 32</span></pre>
+
+    <h3>The Trick: Redis Sorted Set as a Delay Queue</h3>
+
+    <p>Failed deliveries go into a Redis Sorted Set with <code>score = current_time + delay</code>. A scheduler runs every 5 seconds and moves ready jobs back to the main queue:</p>
+
+    <pre><span class="lang-tag">python</span><span class="keyword">async def</span> <span class="function">retry_scheduler</span>():
+    <span class="keyword">while</span> <span class="keyword">True</span>:
+        now = asyncio.get_event_loop().time()
+        ready = <span class="keyword">await</span> redis.zrangebyscore(<span class="string">"webhook_retry_queue"</span>, <span class="number">0</span>, now)
+        
+        <span class="keyword">for</span> delivery_id <span class="keyword">in</span> ready:
+            <span class="keyword">await</span> redis.zrem(<span class="string">"webhook_retry_queue"</span>, delivery_id)
+            <span class="keyword">await</span> redis.lpush(<span class="string">"webhook_queue"</span>, delivery_id)
+        
+        <span class="keyword">await</span> asyncio.sleep(<span class="number">5</span>)</pre>
+
+    <p>This is Redis's <code>ZRANGEBYSCORE</code> — an O(log N) operation. No cron jobs. No polling Postgres. No external scheduler.</p>
+  </div>
+
+  <!-- DECISION 4 -->
+  <div class="decision-card" id="decision-4">
+    <h2><span class="num">4</span> The Circuit Breaker</h2>
+
+    <div class="decision-flow">
+      <div class="flow-box flow-problem">
+        <span class="emoji">💥</span>
+        <span class="label">Problem</span>
+        <div class="text">One dead subscriber causes retry storms, wasting all worker capacity</div>
+      </div>
+      <div class="flow-box flow-options">
+        <span class="emoji">🤔</span>
+        <span class="label">Options</span>
+        <div class="text">No protection / Manual suspension / Circuit breaker pattern</div>
+      </div>
+      <div class="flow-box flow-choice">
+        <span class="emoji">✅</span>
+        <span class="label">Choice</span>
+        <div class="text">3-state circuit breaker (CLOSED → OPEN → HALF_OPEN)</div>
+      </div>
+    </div>
+
+    <p>One subscriber goes down permanently. Without protection, every new event triggers 5 retry attempts against this dead endpoint. If we process 100 events an hour, that's <strong>500 failed HTTP calls</strong> per hour — all wasted, all blocking worker capacity.</p>
+
+    <div class="diagram-container">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" font-family="system-ui, -apple-system, sans-serif" style="max-width:100%;height:auto">
+        <defs>
+          <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1e293b"/></linearGradient>
+          <linearGradient id="green3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#16a34a"/></linearGradient>
+          <linearGradient id="red3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#dc2626"/></linearGradient>
+          <linearGradient id="orange3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#d97706"/></linearGradient>
+          <marker id="arrow-red3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444"/></marker>
+          <marker id="arrow-green3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e"/></marker>
+          <marker id="arrow-orange3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b"/></marker>
+          <filter id="shadow3"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.3"/></filter>
+        </defs>
+        <rect width="600" height="300" fill="url(#bg3)" rx="12"/>
+        <text x="300" y="28" text-anchor="middle" fill="#f1f5f9" font-size="15" font-weight="700">Circuit Breaker — Three States</text>
+        <rect x="50" y="55" width="140" height="60" rx="30" fill="url(#green3)" filter="url(#shadow3)"/>
+        <text x="120" y="85" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">🔒 CLOSED</text>
+        <text x="120" y="102" text-anchor="middle" fill="#dcfce7" font-size="9">Normal operation</text>
+        <rect x="410" y="55" width="140" height="60" rx="30" fill="url(#red3)" filter="url(#shadow3)"/>
+        <text x="480" y="85" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">🔓 OPEN</text>
+        <text x="480" y="102" text-anchor="middle" fill="#fecaca" font-size="9">Rejecting requests</text>
+        <rect x="180" y="190" width="200" height="60" rx="30" fill="url(#orange3)" filter="url(#shadow3)"/>
+        <text x="280" y="220" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">🔶 HALF_OPEN</text>
+        <text x="280" y="237" text-anchor="middle" fill="#fef3c7" font-size="9">Testing one request...</text>
+        <path d="M 190 85 L 405 85" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow-red3)" fill="none"/>
+        <text x="298" y="75" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="600">5 failures</text>
+        <path d="M 480 118 L 380 195" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow-orange3)" fill="none"/>
+        <text x="440" y="160" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">60s cooldown</text>
+        <path d="M 240 190 L 170 118" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-green3)" fill="none"/>
+        <text x="175" y="155" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="600">Success</text>
+        <path d="M 380 220 L 460 118" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow-red3)" fill="none"/>
+        <text x="440" y="195" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="600">Failure</text>
+      </svg>
+      <div class="diagram-caption">Figure 3: The three states of the circuit breaker — CLOSED, OPEN, and HALF_OPEN</div>
+    </div>
+
+    <div class="highlight highlight-green">
+      <h4>✅ How It Works</h4>
+      <ul>
+        <li><strong>CLOSED:</strong> Every delivery goes through. Happy path.</li>
+        <li><strong>OPEN:</strong> After 5 consecutive failures. Worker re-queues with 60s delay. No HTTP calls.</li>
+        <li><strong>HALF_OPEN:</strong> After 60s cooldown. One delivery allowed through as a probe. Success → CLOSED, Failure → OPEN.</li>
+      </ul>
+    </div>
+
+    <p>The beauty of this approach: <strong>No events are dropped.</strong> Deliveries destined for an OPEN circuit are just delayed. When the circuit recovers, they flow through naturally.</p>
+  </div>
+
+  <!-- DECISION 5 -->
+  <div class="decision-card" id="decision-5">
+    <h2><span class="num">5</span> Every Worker Dies Eventually</h2>
+
+    <div class="decision-flow">
+      <div class="flow-box flow-problem">
+        <span class="emoji">💀</span>
+        <span class="label">Problem</span>
+        <div class="text">Worker crashes mid-delivery leaves IN_FLIGHT rows stuck forever</div>
+      </div>
+      <div class="flow-box flow-options">
+        <span class="emoji">🤔</span>
+        <span class="label">Options</span>
+        <div class="text">Hope it doesn't crash / Redis-only / Reaper process</div>
+      </div>
+      <div class="flow-box flow-choice">
+        <span class="emoji">✅</span>
+        <span class="label">Choice</span>
+        <div class="text">Standalone Reaper process with 60s threshold</div>
+      </div>
+    </div>
+
+    <p>The worker picks up a delivery, marks it <code>IN_FLIGHT</code> in Postgres, and starts making the HTTP call. Then: <strong>crash.</strong> Power outage. OOM killer. Accidental <code>kill -9</code>.</p>
+
+    <p>That delivery row is now stuck as <code>IN_FLIGHT</code> forever. It will never be retried, never marked DELIVERED. The event is <strong>silently lost</strong>.</p>
+
+    <div class="highlight highlight-green">
+      <h4>✅ The Solution: The Reaper</h4>
+      <p>A standalone process that runs every 30 seconds, finds deliveries stuck in <code>IN_FLIGHT</code> for more than 60 seconds, resets them to <code>PENDING</code>, and pushes them back into the Redis queue.</p>
+    </div>
+
+    <pre><span class="lang-tag">python</span><span class="keyword">async def</span> <span class="function">reap</span>():
+    stuck = <span class="keyword">await</span> db.execute(<span class="string">"""
+        SELECT id FROM webhook_deliveries
+        WHERE status = 'IN_FLIGHT'
+        AND updated_at < NOW() - INTERVAL '60 seconds'
+    """</span>)
+    
+    <span class="keyword">for</span> row <span class="keyword">in</span> stuck:
+        <span class="keyword">await</span> db.execute(<span class="string">"""
+            UPDATE webhook_deliveries
+            SET status = 'PENDING'
+            WHERE id = :id
+        """</span>)
+        <span class="keyword">await</span> redis.lpush(<span class="string">"webhook_queue"</span>, str(row.id))
+    
+    <span class="keyword">await</span> db.commit()</pre>
+
+    <p><strong>Why 60 seconds?</strong> Our HTTP timeout is 10 seconds. 60 seconds is 6x the timeout — plenty of margin. If a delivery is genuinely in-flight (worker is alive, just slow), the worker updates <code>updated_at</code> on every tick, keeping the Reaper at bay.</p>
+
+    <p><strong>Why a separate process?</strong> If the main worker crashes, the Reaper doesn't care — it's independent. This is the Erlang/OTP supervisor pattern: one process watches another.</p>
+  </div>
+
+  <!-- DECISION 6 -->
+  <div class="decision-card" id="decision-6">
+    <h2><span class="num">6</span> Trust No One</h2>
+
+    <div class="decision-flow">
+      <div class="flow-box flow-problem">
+        <span class="emoji">🔓</span>
+        <span class="label">Problem</span>
+        <div class="text">Anyone who knows a subscriber's URL can send fake webhooks</div>
+      </div>
+      <div class="flow-box flow-options">
+        <span class="emoji">🤔</span>
+        <span class="label">Options</span>
+        <div class="text">No verification / IP whitelist / Bearer token / HMAC signature</div>
+      </div>
+      <div class="flow-box flow-choice">
+        <span class="emoji">✅</span>
+        <span class="label">Choice</span>
+        <div class="text">HMAC-SHA256 with per-subscription secrets</div>
+      </div>
+    </div>
+
+    <p>Anyone who knows a subscriber's endpoint URL can send fake webhooks. If I know your Slack webhook URL, I can post spam that looks like it came from our system. No authentication = no trust.</p>
+
+    <div class="highlight highlight-green">
+      <h4>✅ HMAC-SHA256 with Per-Subscription Secrets</h4>
+      <p>When a subscription is created, we generate a 64-character hex secret using <code>secrets.token_hex(32)</code>. Every webhook request is signed with HMAC-SHA256 and verified by the subscriber using <code>hmac.compare_digest()</code> — not <code>==</code> — to prevent timing attacks.</p>
+    </div>
+
+    <pre><span class="lang-tag">python</span><span class="comment"># Signing the payload (in the worker)</span>
+<span class="keyword">def</span> <span class="function">sign_payload</span>(secret: str, payload: dict) -> str:
+    body = json.dumps(payload, separators=(<span class="string">","</span>, <span class="string">":"</span>), sort_keys=<span class="keyword">True</span>)
+    sig = hmac.new(
+        secret.encode(), body.encode(), hashlib.sha256
+    ).hexdigest()
+    <span class="keyword">return</span> <span class="string">f"sha256={sig}"</span></pre>
+
+    <pre><span class="lang-tag">python</span><span class="comment"># Verifying the signature (in the subscriber)</span>
+<span class="keyword">def</span> <span class="function">verify_signature</span>(secret, payload, signature):
+    body = json.dumps(payload, separators=(<span class="string">","</span>, <span class="string">":"</span>), sort_keys=<span class="keyword">True</span>)
+    expected = <span class="string">"sha256="</span> + hmac.new(
+        secret.encode(), body.encode(), hashlib.sha256
+    ).hexdigest()
+    <span class="keyword">return</span> hmac.compare_digest(expected, signature)
+    <span class="comment"># ^ ALWAYS use compare_digest, never ==</span>
+    <span class="comment"># This prevents timing attacks!</span></pre>
+
+    <p>Every webhook includes three standard headers:</p>
+    <pre><span class="lang-tag">HTTP Header</span>X-Webhook-Signature: sha256=a1b2c3d4e5f6...
+X-Webhook-Delivery:  87b74510-56a7-4b21-bda6-076f2b144224
+X-Webhook-Attempt:   1</pre>
+
+    <p><strong>Why <code>compare_digest</code> and not <code>==</code>?</strong></p>
+    <p>A normal <code>==</code> comparison stops at the first mismatched character. An attacker can measure the response time to guess the signature byte-by-byte — a <strong>timing attack</strong>. <code>compare_digest</code> always takes the same time regardless of where the mismatch is. This is defense-in-depth, and it matters.</p>
+  </div>
+
+  <!-- DECISION 7 -->
+  <div class="decision-card" id="decision-7">
+    <h2><span class="num">7</span> Two Databases Are Better Than One</h2>
+
+    <div class="decision-flow">
+      <div class="flow-box flow-problem">
+        <span class="emoji">🗄️</span>
+        <span class="label">Problem</span>
+        <div class="text">Need both durability (never lose events) and speed (fast queue operations)</div>
+      </div>
+      <div class="flow-box flow-options">
+        <span class="emoji">🤔</span>
+        <span class="label">Options</span>
+        <div class="text">Postgres only / Redis only / Both (dual storage)</div>
+      </div>
+      <div class="flow-box flow-choice">
+        <span class="emoji">✅</span>
+        <span class="label">Choice</span>
+        <div class="text">Postgres as truth + Redis as queue</div>
+      </div>
+    </div>
+
+    <p>We need two contradictory things: <strong>durability</strong> (never lose an event) and <strong>speed</strong> (process thousands of deliveries per second). A single database can't do both perfectly.</p>
+
+    <div class="highlight highlight-green">
+      <h4>✅ Postgres as Source of Truth. Redis as Queue.</h4>
+      <p>The flow is strict: Postgres commit happens <strong>before</strong> Redis push. If Redis crashes between steps 3 and 4, the delivery is safely in Postgres as <code>PENDING</code>. The Reaper will find it and re-queue it.</p>
+    </div>
+
+    <pre><span class="lang-tag">text</span>Event arrives
+  → 1. INSERT into Postgres events table ✅
+  → 2. INSERT delivery rows into Postgres ✅
+  → 3. PUSH delivery IDs into Redis list
+  → 4. Return 202 Accepted</pre>
+
+    <blockquote>
+      <strong>Postgres:</strong> I have the data. I will never forget it.<br>
+      <strong>Redis:</strong> I move the data fast. If I forget, Postgres has the backup.
+    </blockquote>
+  </div>
+
+  <!-- DECISION 8 -->
+  <div class="decision-card" id="decision-8">
+    <h2><span class="num">8</span> Why 202? (Not 200, Not 201)</h2>
+
+    <div class="decision-flow">
+      <div class="flow-box flow-problem">
+        <span class="emoji">📡</span>
+        <span class="label">Problem</span>
+        <div class="text">What HTTP status tells the sender "we got it" without promising delivery?</div>
+      </div>
+      <div class="flow-box flow-options">
+        <span class="emoji">🤔</span>
+        <span class="label">Options</span>
+        <div class="text">200 OK / 201 Created / 202 Accepted</div>
+      </div>
+      <div class="flow-box flow-choice">
+        <span class="emoji">✅</span>
+        <span class="label">Choice</span>
+        <div class="text">202 Accepted — async processing</div>
+      </div>
+    </div>
+
+    <p><code>202 Accepted</code> is the HTTP standard for "we received your request and will process it later." It's the perfect status code for async workflows.</p>
+
+    <pre><span class="lang-tag">python</span><span class="keyword">@router</span>.post(<span class="string">"/events"</span>, status_code=<span class="number">202</span>)
+<span class="keyword">async def</span> <span class="function">ingest_event</span>(event, db):
+    <span class="comment"># ... save and queue ...</span>
+    <span class="keyword">return</span> {<span class="string">"accepted"</span>: <span class="keyword">True</span>, <span class="string">"event_id"</span>: event_id}</pre>
+
+    <p>202 tells the sender: ✅ Your event was received ✅ Deliveries have been queued ⏳ Processing happens async. The sender can track delivery status later via <code>GET /deliveries?event_id=&lt;uuid&gt;</code>.</p>
+  </div>
+
+  <div class="separator">✦ ✦ ✦</div>
+
+  <!-- LESSONS -->
+  <h2>📚 The Lessons (In One Place)</h2>
+  <p>Here's every hard-earned lesson from building this system, distilled into a single table:</p>
+
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr><th>#</th><th>What We Learned</th><th>In One Sentence</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td><strong>Decouple with a queue</strong></td><td>Never make the sender wait for your deliveries.</td></tr>
+        <tr><td>2</td><td><strong>At-least-once is enough</strong></td><td>Exactly-once is too expensive. Check for duplicates instead.</td></tr>
+        <tr><td>3</td><td><strong>Backoff exponentially</strong></td><td>Retry fast when it helps, slow when it doesn't.</td></tr>
+        <tr><td>4</td><td><strong>Use a circuit breaker</strong></td><td>One dead subscriber shouldn't kill your whole system.</td></tr>
+        <tr><td>5</td><td><strong>Expect crashes</strong></td><td>When your worker dies, the Reaper saves the day.</td></tr>
+        <tr><td>6</td><td><strong>Sign everything</strong></td><td>HMAC-SHA256 with timing-safe comparison. No exceptions.</td></tr>
+        <tr><td>7</td><td><strong>Use two databases</strong></td><td>Postgres for truth, Redis for speed. Each plays its role.</td></tr>
+        <tr><td>8</td><td><strong>Use 202 Accepted</strong></td><td>Tell the sender "we got it" without promising delivery yet.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="separator">✦ ✦ ✦</div>
+
+  <!-- TECH STACK -->
+  <h2>⚙️ The Tech Stack</h2>
+
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr><th>Technology</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>FastAPI</strong></td><td>Async Python web framework</td></tr>
+        <tr><td><strong>PostgreSQL 16</strong></td><td>Persistent state, delivery tracking (source of truth)</td></tr>
+        <tr><td><strong>Redis 7</strong></td><td>Job queue (LIST) + delay queue (Sorted Set)</td></tr>
+        <tr><td><strong>SQLAlchemy 2.0</strong></td><td>Async database ORM</td></tr>
+        <tr><td><strong>aiohttp</strong></td><td>Async HTTP client for webhook delivery</td></tr>
+        <tr><td><strong>Docker Compose</strong></td><td>Local Postgres + Redis infrastructure</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="separator">✦ ✦ ✦</div>
+
+  <!-- TRY IT -->
+  <h2>🚀 Want to Build It Yourself?</h2>
+
+  <p>The full source code is available. Clone it, run <code>docker compose up</code>, and you have a fully functional webhook delivery system running locally.</p>
+
+  <pre><span class="lang-tag">bash</span>docker compose up -d                    <span class="comment"># Postgres + Redis</span>
+pip install -r requirements.txt
+python init_db.py                       <span class="comment"># Create tables</span>
+uvicorn main:app --reload               <span class="comment"># API server (terminal 1)</span>
+python worker.py                        <span class="comment"># Worker (terminal 2)</span>
+python reaper.py                        <span class="comment"># Reaper (terminal 3)</span>
+python webhook_receiver.py              <span class="comment"># Test subscriber (terminal 4)</span></pre>
+
+  <p>Then register a subscriber and send an event:</p>
+
+  <pre><span class="lang-tag">bash</span><span class="comment"># Register</span>
+curl -X POST http://localhost:8000/subscriptions \
+  -H <span class="string">"Content-Type: application/json"</span> \
+  -d <span class="string">'{"endpoint_url": "http://localhost:9000/webhook", "event_type": "order.placed"}'</span>
+
+<span class="comment"># Send an event</span>
+curl -X POST http://localhost:8000/events \
+  -H <span class="string">"Content-Type: application/json"</span> \
+  -d <span class="string">'{"event_type": "order.placed", "payload": {"order_id": "ORD-123", "amount": 99.99}}'</span></pre>
+
+</div>
+</section>
+
+<!-- FOOTER -->
+<section class="footer">
+  <div class="container">
+    <p>Built with Python, Postgres, Redis, and too much coffee. ☕</p>
+    <p style="margin-top: 8px;">If you found this useful, follow for more deep dives into the engineering decisions behind the systems we rely on every day.</p>
+  </div>
+</section>
+
+</body>
+</html>

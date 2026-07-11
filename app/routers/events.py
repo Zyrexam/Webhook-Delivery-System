@@ -3,11 +3,12 @@ import json
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from database import get_db
-from redis_client import redis
-from models import EventCreate
+from ..database import get_db
+from ..redis_client import redis
+from ..models import EventCreate
 
 router = APIRouter()
+
 
 @router.post("/events", status_code=202)
 async def ingest_event(event: EventCreate, db: AsyncSession = Depends(get_db)):
@@ -41,9 +42,16 @@ async def ingest_event(event: EventCreate, db: AsyncSession = Depends(get_db)):
             VALUES (:id, :event_id, :sub_id, 'PENDING')
         """), {"id": delivery_id, "event_id": event_id, "sub_id": str(sub[0])})
 
-    await db.commit()
+    # Push to Redis first — if this fails, PG isn't committed yet, caller can safely retry
+    if delivery_ids:
+        await redis.lpush("webhook_queue", *delivery_ids)
 
-    for delivery_id in delivery_ids:
-        await redis.lpush("webhook_queue", delivery_id)
+    # Then commit PG — if commit fails, clean up Redis
+    try:
+        await db.commit()
+    except Exception:
+        for delivery_id in delivery_ids:
+            await redis.lrem("webhook_queue", 0, delivery_id)
+        raise
 
     return {"accepted": True, "event_id": event_id}

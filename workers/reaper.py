@@ -1,10 +1,8 @@
 import asyncio
 from sqlalchemy import text
-from database import AsyncSessionLocal
-from redis_client import redis
+from app.database import AsyncSessionLocal
+from app.redis_client import redis
 
-# If a job has been IN_FLIGHT for more than this many seconds
-# without completing — assume the worker died
 STUCK_THRESHOLD_SECONDS = 60
 
 
@@ -30,13 +28,17 @@ async def reap():
         for row in stuck:
             print(f"[reaper] rescuing {row.id} (attempt {row.attempt_count})")
 
-            # Reset back to PENDING
-            await db.execute(text("""
+            # Reset back to PENDING (only if still IN_FLIGHT)
+            result = await db.execute(text("""
                 UPDATE webhook_deliveries
                 SET status = 'PENDING',
                     next_attempt_at = NOW()
-                WHERE id = :id
+                WHERE id = :id AND status = 'IN_FLIGHT'
             """), {"id": str(row.id)})
+
+            if result.rowcount == 0:
+                print(f"[reaper] {row.id} no longer IN_FLIGHT — skipping")
+                continue
 
             # Push back into Redis queue
             await redis.lpush("webhook_queue", str(row.id))
@@ -53,7 +55,3 @@ async def main():
 
 
 asyncio.run(main())
-
-
-
-

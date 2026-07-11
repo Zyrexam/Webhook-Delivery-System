@@ -38,7 +38,7 @@ async def init():
             )
         """))
 
-        # Webhook deliveries table — with status_code + error_message + updated_at
+        # Webhook deliveries table
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS webhook_deliveries (
                 id               UUID PRIMARY KEY,

@@ -4,7 +4,7 @@ from sqlalchemy import text
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
-from database import get_db
+from ..database import get_db
 
 router = APIRouter(prefix="/deliveries", tags=["deliveries"])
 
@@ -75,7 +75,7 @@ async def delivery_stats(db: AsyncSession = Depends(get_db)):
         GROUP BY status
     """))
     stats = [
-        {"status": row[0], "count": row[1], "avg_attempts": round(float(row[2]), 2)}
+        {"status": row[0], "count": row[1], "avg_attempts": round(float(row[2] or 0), 2)}
         for row in result.fetchall()
     ]
 

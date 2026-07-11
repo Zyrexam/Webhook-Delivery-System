@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 260" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <rect width="700" height="260" fill="url(#bg)" rx="12"/>
+  <text x="350" y="28" text-anchor="middle" fill="#f1f5f9" font-size="15" font-weight="700">Exponential Backoff — Retry Timing</text>
+  <text x="350" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">delay = 2^attempt  |  max 5 attempts</text>
+
+  <!-- Attempt 1 -->
+  <rect x="60" y="155" width="60" height="30" rx="6" fill="#22c55e" filter="url(#shadow)"/>
+  <text x="90" y="175" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">2s</text>
+  
+  <!-- Attempt 2 -->
+  <rect x="140" y="135" width="80" height="30" rx="6" fill="#16a34a" filter="url(#shadow)"/>
+  <text x="180" y="155" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">4s</text>
+
+  <!-- Attempt 3 -->
+  <rect x="240" y="115" width="100" height="30" rx="6" fill="#15803d" filter="url(#shadow)"/>
+  <text x="290" y="135" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">8s</text>
+
+  <!-- Attempt 4 -->
+  <rect x="360" y="95" width="120" height="30" rx="6" fill="#166534" filter="url(#shadow)"/>
+  <text x="420" y="115" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">16s</text>
+
+  <!-- Attempt 5 -->
+  <rect x="500" y="75" width="140" height="30" rx="6" fill="#14532d" filter="url(#shadow)"/>
+  <text x="570" y="95" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">32s</text>
+
+  <!-- DEAD -->
+  <rect x="500" y="175" width="140" height="40" rx="20" fill="#dc2626" filter="url(#shadow)"/>
+  <text x="570" y="200" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">💀 DEAD</text>
+
+  <!-- Arrow from 5 to DEAD -->
+  <line x1="570" y1="108" x2="570" y2="170" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow-red)"/>
+
+  <defs>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 0 L 5 10 z" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <!-- Labels below -->
+  <text x="90" y="208" text-anchor="middle" fill="#94a3b8" font-size="9">Attempt 1</text>
+  <text x="180" y="208" text-anchor="middle" fill="#94a3b8" font-size="9">Attempt 2</text>
+  <text x="290" y="208" text-anchor="middle" fill="#94a3b8" font-size="9">Attempt 3</text>
+  <text x="420" y="208" text-anchor="middle" fill="#94a3b8" font-size="9">Attempt 4</text>
+  <text x="570" y="208" text-anchor="middle" fill="#94a3b8" font-size="9">Attempt 5</text>
+
+  <!-- Timeline axis -->
+  <line x1="60" y1="200" x2="640" y2="200" stroke="#475569" stroke-width="1"/>
+
+  <!-- Timeline markers -->
+  <line x1="60" y1="196" x2="60" y2="204" stroke="#64748b" stroke-width="1"/>
+  <text x="60" y="222" text-anchor="middle" fill="#64748b" font-size="8">0s</text>
+  <text x="200" y="222" text-anchor="middle" fill="#64748b" font-size="8">~6s</text>
+  <text x="340" y="222" text-anchor="middle" fill="#64748b" font-size="8">~14s</text>
+  <text x="480" y="222" text-anchor="middle" fill="#64748b" font-size="8">~30s</text>
+  <text x="620" y="222" text-anchor="middle" fill="#64748b" font-size="8">~62s</text>
+</svg>
