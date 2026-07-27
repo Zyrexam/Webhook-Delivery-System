@@ -89,7 +89,7 @@ async def list_subscriptions(
 @router.get("/{sub_id}", response_model=SubscriptionResponse)
 async def get_subscription(sub_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(text("""
-        SELECT id, endpoint_url, event_type, created_at, is_active
+        SELECT id, endpoint_url, event_type, created_at, is_active, circuit_state, failure_count
         FROM subscriptions WHERE id = :id
     """), {"id": sub_id})
     row = result.fetchone()
